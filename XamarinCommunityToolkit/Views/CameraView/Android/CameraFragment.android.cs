@@ -330,7 +330,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 		{
 			DisposeImageReader();
 
-			photoReader = ImageReader.NewInstance(640, 480, ImageFormatType.Jpeg, maxImages: 1);
+			photoReader = ImageReader.NewInstance(photoSize.Width, photoSize.Height, ImageFormatType.Jpeg, maxImages: 1);
 
 			var readerListener = new ImageAvailableListener();
 			readerListener.Photo += (_, bytes) =>
@@ -905,25 +905,39 @@ namespace Xamarin.CommunityToolkit.UI.Views
 		}
 
 		// chooses the smallest one whose width and height are at least as large as the respective requested values
-		ASize ChooseOptimalSize(ASize[] choices, int width, int height, ASize aspectRatio)
+		ASize ChooseOptimalSize(ASize[] choices, int textureWidth, int textureHeight, ASize aspectRatio)
 		{
 			var bigEnough = new List<ASize>();
+			var notBigEnough = new List<ASize>();
 			var w = aspectRatio.Width;
 			var h = aspectRatio.Height;
+
 			foreach (var option in choices)
 			{
-				if (option.Height == option.Width * h / w &&
-						option.Width >= width && option.Height >= height)
+				if (option.Width <= aspectRatio.Width && option.Height <= aspectRatio.Height &&
+						option.Height == option.Width * h / w)
 				{
-					bigEnough.Add(option);
+					if (option.Width >= textureWidth &&
+						option.Height >= textureHeight)
+					{
+						bigEnough.Add(option);
+					}
+					else
+					{
+						notBigEnough.Add(option);
+					}
 				}
 			}
 
-			// Pick the smallest of those, assuming we found any
+			// Pick the smallest of those big enough. If there is no one big enough, pick the
+			// largest of those not big enough.
 			if (bigEnough.Count > 0)
 			{
-				var minArea = bigEnough.Min(s => s.Width * s.Height);
-				return bigEnough.First(s => s.Width * s.Height == minArea);
+				return bigEnough.OrderBy(d => d.Width * d.Height).First();
+			}
+			else if (notBigEnough.Count > 0)
+			{
+				return notBigEnough.OrderByDescending(d => d.Width * d.Height).First();
 			}
 			else
 			{
